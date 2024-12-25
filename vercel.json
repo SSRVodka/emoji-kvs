@@ -6,6 +6,9 @@
             "maxDuration": 10
         }
     },
+    "routes": [
+        {"src": "/(.*)", "dest": "/api/func/"}
+    ],
     "buildCommand": "npm run build",
     "outputDirectory": "dist"
   }

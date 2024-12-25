@@ -3,12 +3,12 @@ import express from 'express';
 import { RedisStoreClient } from './store/impl/redis_client';
 
 import DataType from './types/data_type';
-import { IncomingMessage, ServerResponse } from 'http';
 
 import cors from 'cors';  // Import cors middleware
 import StorageInterface, { StorageConfig } from './store/store';
 import MongoStorageClient from './store/impl/mongo_client';
 import { Logger } from './utils/logger';
+import { VercelRequest, VercelResponse } from '@vercel/node';
 
 
 export enum AppSupportedStorageClient {
@@ -27,6 +27,8 @@ function str2assc(c: string): AppSupportedStorageClient {
 
 export interface AppConfig extends StorageConfig {
   
+  app_root: string;
+
   client_type: string;
 
   resource_endpoints: string[];
@@ -49,6 +51,7 @@ export function loadConfigFromEnv(): AppConfig {
   const db_type = process.env.DB_TYPE?.toUpperCase() || "REDIS";
 
   return {
+    app_root: "/",
     db_host: db_host,
     db_port: db_port,
     db_user: db_user,
@@ -105,7 +108,7 @@ export default class App {
     this.logger.info(`registering resource (endpoint): ${resource_name}`);
 
     // Endpoint to add a key-value pair
-    this.server.post(`/${resource_name}`, async (req, res) => {
+    this.server.post(`${this.config.app_root}${resource_name}`, async (req, res) => {
       let { key, val: value } = req.body as DataType;
       if (!key || !value) {
         res.status(400).send('Both key and value are required.');
@@ -114,9 +117,10 @@ export default class App {
       this.logger.info(`add kv: ${key}::${value}`);
       res.status(200).send(message);
     });
+    this.logger.debug(`registering: [POST] ${this.config.app_root}${resource_name}`);
 
     // Endpoint to update a key-value pair
-    this.server.put(`/${resource_name}`, async (req, res) => {
+    this.server.put(`${this.config.app_root}${resource_name}`, async (req, res) => {
       let { key, val: value } = req.body as DataType;
       if (!key || !value) {
         res.status(400).send('Both key and value are required.');
@@ -125,22 +129,25 @@ export default class App {
       this.logger.info(`update kv: ${key}::${value}`);
       res.status(200).send(message);
     });
+    this.logger.debug(`registering: [PUT] ${this.config.app_root}${resource_name}`);
 
     // Endpoint to get all keys
     // Debug only
-    this.server.get(`/__keys/${resource_name}`, async (req, res) => {
+    this.server.get(`${this.config.app_root}__keys/${resource_name}`, async (req, res) => {
       const keys = await this.client.getAllKeys(resource_name);
       this.logger.info(`get keys: ${keys}`);
       res.status(200).json(keys);
     });
+    this.logger.debug(`registering: [GET] ${this.config.app_root}__keys/${resource_name}`);
 
     // Endpoint to get the value by key
-    this.server.get(`/${resource_name}/:key`, async (req, res) => {
+    this.server.get(`${this.config.app_root}${resource_name}/:key`, async (req, res) => {
       let { key }: { key: string } = req.params;
       const value = await this.client.getValue(resource_name, key);
       this.logger.info(`get kv: ${key} -> ${value.data}`);
       res.status(200).send(value);
     });
+    this.logger.debug(`registering: [GET] ${this.config.app_root}${resource_name}/:key`);
 
     // // Endpoint to delete a key-value pair
     // this.server.delete('/delete/:key', async (req, res) => {
@@ -164,6 +171,11 @@ export default class App {
     if (this.config.resource_endpoints.length === 0) {
       this.logger.warn("empty resource list. No endpoint will be registered");
     }
+    // register root for display
+    this.server.get(this.config.app_root, async (req, res) => {
+      this.logger.info(`test root resp: ${this.config.app_root}`);
+      res.status(200).json({code: 0, message: "server runs normally. Ready for requests :)"});
+    });
     for (const res of this.config.resource_endpoints) {
       this.register_resource(res);
     }
@@ -177,7 +189,7 @@ export default class App {
     });
   }
 
-  serverless_function(req: IncomingMessage, res: ServerResponse): void {
+  serverless_function(req: VercelRequest, res: VercelResponse): void {
     this.server(req, res);
   }
 

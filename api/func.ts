@@ -1,12 +1,11 @@
 import App, { loadConfigFromEnv } from "../src/app";
-import { IncomingMessage, ServerResponse } from "http";
+import type { VercelRequest, VercelResponse } from '@vercel/node';
 
-
-const app = new App(loadConfigFromEnv());
-
-app.setup();
 
 // Export the app as a serverless function
-export default (req: IncomingMessage, res: ServerResponse) => {
+export default (req: VercelRequest, res: VercelResponse) => {
+    const app = new App(loadConfigFromEnv());
+
+    app.setup();
     app.serverless_function(req, res);
 };

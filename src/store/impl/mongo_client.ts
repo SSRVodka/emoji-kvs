@@ -85,7 +85,7 @@ export default class MongoStorageClient implements StorageInterface<string, stri
             const keyStrs = [];
             for (const key of keys) {
                 if (key.key.endsWith(scope))
-                    keyStrs.push(key.key.substring(0, key.key.length - 2 - scope.length));
+                    keyStrs.push(key.key.substring(0, key.key.length - 1 - scope.length));
             }
             return {code: StorageRespCode.OK, data: keyStrs, message: "get OK"};
         } catch (error) {

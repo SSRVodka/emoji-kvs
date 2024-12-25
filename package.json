@@ -5,7 +5,8 @@
   "main": "index.js",
   "scripts": {
     "start": "npx tsc --outDir dist && node dist/index.js",
-    "build": "npx tsc --outDir dist",
+    "build:dev": "npx tsc --outDir dist",
+    "build": "npx webpack --mode production",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "author": "SJTU-XHW",
@@ -21,7 +22,13 @@
     "@types/cors": "^2.8.17",
     "@types/express": "^5.0.0",
     "@types/node": "^22.10.2",
+    "@vercel/node": "^5.0.0",
+    "terser-webpack-plugin": "^5.3.11",
+    "ts-loader": "^9.5.1",
     "typescript": "^5.7.2",
-    "vercel": "^39.2.2"
+    "vercel": "^39.2.2",
+    "webpack": "^5.97.1",
+    "webpack-cli": "^6.0.1",
+    "webpack-node-externals": "^3.0.0"
   }
 }
