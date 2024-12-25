@@ -17,3 +17,5 @@ npm run build
 ```
 
 4. [Optional] Deploy the app on vercel
+
+    - remember to set environment variables (located in `.env.example`)!

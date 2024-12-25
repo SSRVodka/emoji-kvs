@@ -1,21 +1,32 @@
 
 import { createClient, RedisClientType } from 'redis';
-import StorageInterface, { StorageResp, StorageRespCode } from '../store';
+import StorageInterface, { StorageConfig, StorageResp, StorageRespCode } from '../store';
+import { Logger } from '../../utils/logger';
 
 
 export class RedisStoreClient implements StorageInterface<string, string> {
 
     client: RedisClientType | null = null;
+    logger: Logger;
 
-    connect(host: string, port: number, password?: string) {
+    constructor() {
+        this.logger = new Logger("Redis Client");
+    }
+
+    connect(config: StorageConfig) {
         // Create and configure the Redis client
+        let conn_str = `redis://${config.db_host}`;
+        if (config.db_port) {
+            conn_str += `:${config.db_port}`;
+        }
+        this.logger.info(`connecting to: ${conn_str}`);
         this.client = createClient({
-            url: `redis://${host}:${port}`,
-            password: password
+            url: conn_str,
+            password: config.db_pwd
         });
         
         this.client.on('error', (err) => {
-            console.error('[ Redis Client Error ]', err);
+            this.logger.error(`${err}`);
             throw Error(err);
         });
         
@@ -33,8 +44,9 @@ export class RedisStoreClient implements StorageInterface<string, string> {
         return this.client as RedisClientType;
     }
 
-    async addKeyValue(key: string, value: string): Promise<StorageResp<null>> {
+    async addKeyValue(scope: string, key: string, value: string): Promise<StorageResp<null>> {
         try {
+            key = `${scope}:${key}`;
             await this.getClientInstance().set(key, value);
             return {code: StorageRespCode.OK, message: "add OK"};
         } catch (err) {
@@ -45,8 +57,9 @@ export class RedisStoreClient implements StorageInterface<string, string> {
     // async addKeyValue(key: string, value: string): Promise<StorageResp> {
         
     // }
-    async updateKeyValue(key: string, value: string): Promise<StorageResp<null>> {
+    async updateKeyValue(scope: string, key: string, value: string): Promise<StorageResp<null>> {
         try {
+            key = `${scope}:${key}`;
             const existingValue = await this.getClientInstance().get(key);
             if (existingValue !== null) {
                 await this.getClientInstance().set(key, value);
@@ -57,8 +70,9 @@ export class RedisStoreClient implements StorageInterface<string, string> {
             return {code: StorageRespCode.UNKNOWN_ERROR, message: `${err}`};
         }
     }
-    async getValue(key: string): Promise<StorageResp<string>> {
+    async getValue(scope: string, key: string): Promise<StorageResp<string>> {
         try {
+            key = `${scope}:${key}`;
             const value = await this.getClientInstance().get(key);
             if (value) return {code: StorageRespCode.OK, data: value, message: "get OK"};
             else return {code: StorageRespCode.NOT_EXISTS, message: `${key} not exists`};
@@ -66,16 +80,18 @@ export class RedisStoreClient implements StorageInterface<string, string> {
             return {code: StorageRespCode.UNKNOWN_ERROR, message: `${err}`};
         }
     }
-    async getAllKeys(): Promise<StorageResp<string[]>> {
+    async getAllKeys(scope: string): Promise<StorageResp<string[]>> {
         try {
-            const keys = await this.getClientInstance().keys('*');
+            let keys = await this.getClientInstance().keys(`${scope}:*`);
+            keys = keys.map((k) => k.substring(1 + scope.length, k.length));
             return {code: StorageRespCode.OK, data: keys, message: "get OK"};
         } catch (err) {
             return {code: StorageRespCode.UNKNOWN_ERROR, message: `${err}`};
         }
     }
-    async deleteKey(key: string): Promise<StorageResp<null>> {
+    async deleteKey(scope: string, key: string): Promise<StorageResp<null>> {
         try {
+            key = `${scope}:${key}`;
             const result = await this.getClientInstance().del(key);
             return {code: result > 0 ? StorageRespCode.OK : StorageRespCode.NOT_EXISTS, message: "delete OK"};
         } catch (err) {
